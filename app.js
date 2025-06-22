@@ -17,7 +17,10 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin : ["https://uas-api-web2.vercel.app","https://uas-api-web1.vercel.app"]
+  origin: [
+    "https://uas-api-web2.vercel.app",
+    "https://uas-api-web1.vercel.app"
+  ]
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -29,8 +32,8 @@ app.use((req, res, next) => {
 });
 
 // Routes
-app.use('/api/auth', authRoutes); // Authentication routes (login & register)
-app.use('/api/users', userRoutes); // User CRUD and login/register
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/kategori', kategoriRoutes);
@@ -42,7 +45,17 @@ app.get('/test', (req, res) => {
   res.json({ message: 'Server is running!' });
 });
 
-// Database connection and server start
+// DB Keep-Alive Ping
+const keepDBAlive = async () => {
+  try {
+    await sequelize.query('SELECT 1');
+    console.log(`[${new Date().toISOString()}] Keep-alive ping to DB successful.`);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] DB keep-alive ping failed:`, error.message);
+  }
+};
+
+// Start server + ping interval
 const PORT = process.env.PORT || 3000;
 
 async function startServer() {
@@ -50,13 +63,17 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('Database connection has been established successfully.');
     
-    // Sync all models
     await sequelize.sync();
     console.log('All models were synchronized successfully.');
 
+    // Start server
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
+
+    // Start keep-alive ping every 2 minutes
+    setInterval(keepDBAlive, 1000 * 60 * 2); // 2 minutes
+
   } catch (error) {
     console.error('Unable to connect to the database:', error);
   }
